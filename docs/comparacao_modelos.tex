@@ -1,0 +1,120 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\geometry{margin=2.4cm}
+\hypersetup{hidelinks}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+
+\title{Os três modelos e a DBO da entrada\\[0.3em]
+\large Quem chega mais perto, e o que ainda falta}
+\author{SoftSensor}
+\date{16 de outubro de 2026}
+
+\begin{document}
+\maketitle
+
+\section{O que está sendo comparado}
+
+Os três modelos estimam a mesma grandeza, a DBO na entrada da planta (\texttt{DBO-E}), a partir de DQO e SST do mesmo ponto. O MLP usa só a leitura do dia. A RNN e o JEPA usam uma fila de 10 leituras, o dia estimado e as nove anteriores disponíveis.
+
+Há dois testes, e eles não medem a mesma coisa.
+
+\begin{itemize}
+\item O MLP sorteia 80\% dos 498 dias para treino e 20\% para teste. A DBO média fica em 188 no treino e 191 no teste. Os dois lados vivem no mesmo patamar.
+\item A RNN e o JEPA separam o tempo. Treinam com os dias anteriores a 29 de maio de 1991, com DBO média 195, e testam os 100 dias seguintes, até 29 de outubro de 1991, com DBO média 164 e desvio 37. O patamar cai.
+\end{itemize}
+
+Por isso o \(R^{2}\) de 0,37 do MLP não se soma ao \(R^{2}\) negativo da RNN. Um descreve dias misturados do mesmo regime. O outro descreve o futuro.
+
+\section{Quem erra menos}
+
+No corte cronológico, que é o teste comum da RNN e do JEPA, a RNN tem o menor erro entre os três. A margem é de 0,78 de MAE sobre o JEPA e de 1,13 sobre a reta que usa só a DQO e o SST do dia. O desvio da validação temporal da RNN é 3,94. A diferença cabe dentro dessa faixa. O RMSE conta a mesma história: 40,68 na RNN, 40,75 na reta e 41,39 no JEPA.
+
+\begin{table}[ht]
+\centering
+\caption{Cem dias finais, de 29 de maio a 29 de outubro de 1991. A RNN e o JEPA foram ajustados neste corte. A reta também.}
+\begin{tabular}{lrrr}
+\toprule
+Modelo & MAE & RMSE & \(R^{2}\) \\
+\midrule
+Média do treino & 40,88 & 48,15 & $-$0,73 \\
+Linear da leitura atual & 33,13 & 40,75 & $-$0,24 \\
+Linear das 10 leituras & 34,08 & 42,83 & $-$0,37 \\
+RNN & 32,00 & 40,68 & $-$0,23 \\
+JEPA & 32,78 & 41,39 & $-$0,28 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+No corte sorteado, a reta fica à frente do MLP. A validação cruzada repete a ordem: MAE 38,36 na reta e 39,19 no MLP.
+
+\begin{table}[ht]
+\centering
+\caption{Cem dias sorteados, misturados com o treino ao longo de 1990 e 1991.}
+\begin{tabular}{lrrr}
+\toprule
+Modelo & MAE & RMSE & \(R^{2}\) \\
+\midrule
+Média do treino & 44,11 & 56,83 & 0,00 \\
+Regressão linear & 32,96 & 44,76 & 0,38 \\
+MLP & 33,51 & 44,91 & 0,37 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+O modelo que os dados sustentam, nos dois cortes, é a reta da leitura atual. No MLP ela é \(\widehat{\mathrm{DBO}} = 74{,}04 + 0{,}2872\,\mathrm{DQO} - 0{,}0127\,\mathrm{SST}\). No corte temporal, \(73{,}02 + 0{,}3058\,\mathrm{DQO} - 0{,}0139\,\mathrm{SST}\). A DQO sobe a previsão em cerca de 0,3 unidade por unidade. O SST quase não entra.
+
+A RNN é a melhor das três redes no futuro, e o ganho sobre a reta é pequeno. O JEPA fica entre as duas no MAE e atrás das duas no RMSE. O MLP não supera a reta no sorteio em que foi medido. Redes maiores, nos três casos, não reduziram o erro: o MLP parou em 8 neurônios, a RNN em um estado de 8, e o JEPA, com 1816 parâmetros, parou na primeira época.
+
+\section{A que distância está a DBO}
+
+A DBO alvo é o valor de laboratório do dia. Um acerto seria previsão igual à observação. O que os modelos entregam é outra escala de erro.
+
+\begin{table}[ht]
+\centering
+\caption{Distância entre a previsão e a DBO observada. Viés é a média de observado menos previsto.}
+\begin{tabular}{lrrrr}
+\toprule
+Modelo & Mediana & Percentil 90 & Viés & Até 30 \\
+\midrule
+MLP, dias sorteados & 22,1 & 79,3 & \(+\)5,2 & 59 dias \\
+RNN, dias finais & 25,9 & 57,1 & $-$21,9 & 53 dias \\
+JEPA, dias finais & 27,4 & 70,1 & $-$22,1 & 55 dias \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+No teste sorteado, o erro médio do MLP é 33,5, cerca de 18\% da DBO média daquele conjunto (191). A mediana é 22, e um em cada dez dias erra 79 ou mais. A previsão fica entre 96 e 274 e não acompanha os extremos.
+
+No teste futuro, o erro médio fica em 32 na RNN e em 33 no JEPA, cerca de 20\% da DBO média do período (164). A mediana fica em 26 e 27. O viés de cerca de $-$22 significa que a previsão está 22 unidades acima da DBO medida, em média, durante os cinco meses finais. O \(R^{2}\) negativo diz o resto: usar a média da própria DBO desse período erraria menos do que qualquer um dos três modelos. Eles não conhecem essa média, porque ela só aparece depois. O número mostra que o nível futuro ficou fora do alcance do que DQO e SST carregam.
+
+A faixa prevista também não cobre a faixa medida. Nos dias finais a DBO vai de 84 a 277. A RNN responde de 109 a 266. O JEPA responde de 122 a 304 e ainda assim deixa a maior parte dos pontos acima da reta de igualdade. O centro da série é aproximado. O dia extremo e o patamar do segundo semestre de 1991 ficam distantes.
+
+\section{Hipóteses}
+
+\paragraph{A DQO do dia é o sinal estável.} Na entrada, a correlação da DBO com a DQO é 0,56 e com o SST é 0,14. Embaralhar a DQO aumenta o MAE do MLP em 19. Embaralhar o SST aumenta em 0,1. Na fila de 10 leituras, o coeficiente grande é o da DQO mais recente (0,25); o da leitura anterior cai para 0,09, e os lags antigos ficam em torno de zero. O SST do dia estimado tem coeficiente praticamente nulo.
+
+\paragraph{As nove leituras anteriores não pagam o custo.} A reta com as 10 leituras erra mais que a reta com uma (MAE 34,1 contra 33,1) e tem \(R^{2}\) pior ($-$0,37 contra $-$0,24). A RNN recupera cerca de 1 ponto de MAE, menos que o desvio da sua validação. A hipótese é que a fila acrescenta variação de curto prazo já redundante com a DQO do dia, e um pouco de ruído dos buracos do calendário: 116 intervalos passam de um dia, e uma janela de 10 leituras pode cobrir até 43 dias.
+
+\paragraph{O segundo semestre de 1991 mudou de nível, e DQO e SST não mudaram junto.} A DBO média cai de 195 para 164. Os dois modelos temporais ficam 22 acima da observação. Se a queda fosse proporcional à DQO, a reta \(0{,}3\,\mathrm{DQO}\) teria descido com ela. Não desceu o suficiente. A hipótese é uma mudança de relação entre as grandezas, não só um modelo fraco: o mesmo DQO passa a corresponder a uma DBO menor. Um sorteio esconde isso, porque treino e teste compartilham os dois regimes.
+
+\paragraph{O \(R^{2}\) do MLP descreve mistura, não previsão do futuro.} As médias 188 e 191 são próximas porque o sorteio reparte os mesmos meses. Dias vizinhos podem cair um no treino e outro no teste, e a carga de dias próximos se parece. A hipótese é que 0,37 é um teto otimista para um sensor que precise funcionar no mês seguinte. O teste cronológico, com \(R^{2}\) perto de $-$0,23, é a medida mais dura que estes dados permitem.
+
+\paragraph{O JEPA não alinhou o vetor à DBO.} A correlação média entre o embedding previsto e o embedding da DBO é $-$0,02. O vetor da DBO ficou com desvio 0,061, longe do alvo 1 da penalidade. A validação cortou o treino na primeira época porque continuar aumentava o MAE. A hipótese é que, com cerca de 400 janelas e um alvo escalar, a perda no espaço do vetor não encontra uma representação mais útil do que a própria DQO. O JEPA acaba delegando o número à reta de leitura.
+
+\paragraph{O ponto da planta importa tanto quanto o modelo.} Na saída, DBO, DQO e SST andam juntos (correlações 0,64, 0,87 e 0,68). Na entrada, só DBO e DQO andam juntas, e a DBO da entrada quase não acompanha a da saída (0,14). A hipótese é que um sensor da DBO do efluente veria outro problema, possivelmente mais favorável ao SST da saída, e que insistir na entrada mantém o erro perto de 30 porque a grandeza alvo, nesse ponto, tem pouco eco nas outras duas.
+
+\section{Conclusão}
+
+No futuro da série, a RNN é a melhor dos três modelos, com MAE 32,00 e RMSE 40,68. O JEPA fica em 32,78 e 41,39. O MLP, no sorteio, fica em 33,51 e 44,91, atrás da reta. Nenhuma rede se separa, de forma clara, da regressão linear da DQO e do SST do dia.
+
+Os resultados continuam distantes da DBO alvo. O erro típico fica entre 22 e 27, o erro médio fica em torno de 33, e um em cada dez dias erra de 57 a 79. No período final a previsão fica sistematicamente 22 acima da medida, e o \(R^{2}\) negativo mostra que o nível daqueles meses não foi alcançado. O que os modelos acompanham é o centro da relação entre DBO e DQO. O que falta é o patamar quando ele muda, e o dia em que a DBO se afasta desse centro.
+\end{document}
